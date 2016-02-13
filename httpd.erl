@@ -1,4 +1,4 @@
--module(server1).
+-module(httpd).
 -export([run/0, listen_sock/1]).
 % не допер, как жить без экспорта и с передачей параметра
 % кодировки поломаны
@@ -11,11 +11,11 @@
 
 run() ->
     {ok, ListenSock} = gen_tcp:listen(80, [binary, {packet, 0}, {active, false}]),
-    spawn(server1, listen_sock, [ListenSock]).
+    spawn(httpd, listen_sock, [ListenSock]).
 
 listen_sock(ListenSock) ->
     {ok, Sock} = gen_tcp:accept(ListenSock),
-    spawn(server1, listen_sock, [ListenSock]),
+    spawn(httpd, listen_sock, [ListenSock]),
     try
         {ok, ReceiveHeader} = gen_tcp:recv(Sock, 0, ?HEADER_TIMEOUT),
         [Method, UglyPath| _] = binary:split(ReceiveHeader, [<<" ">>, <<"?">>, <<"\r">>, <<"\n">>], [trim_all, global]),
