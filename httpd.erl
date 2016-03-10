@@ -1,7 +1,5 @@
 -module(httpd).
--export([run/0, listen_sock/1]).
-% не допер, как жить без экспорта и с передачей параметра
-% кодировки поломаны
+-export([start/0, stop/1]).
 
 
 -define(HEADER_TIMEOUT, 1000).
@@ -9,13 +7,28 @@
 -define(FILE_INDEX    , "index.html").
 
 
-run() ->
-    {ok, ListenSock} = gen_tcp:listen(80, [binary, {packet, 0}, {active, false}]),
-    spawn(httpd, listen_sock, [ListenSock]).
+start() ->
+    case gen_tcp:listen(80, [binary, {packet, 0}, {active, false}]) of
+        {ok, ListenSock} ->
+            spawn(fun() -> listen_sock(ListenSock) end),
+            {ok, ListenSock};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
+stop(ListenSock) ->
+    gen_tcp:close(ListenSock).
 
 listen_sock(ListenSock) ->
-    {ok, Sock} = gen_tcp:accept(ListenSock),
-    spawn(httpd, listen_sock, [ListenSock]),
+    case gen_tcp:accept(ListenSock) of
+        {ok, Sock} ->
+            spawn(fun() -> listen_sock(ListenSock) end),
+            handle_connect(Sock);
+        {error, closed} ->
+            ok
+    end.
+
+handle_connect(Sock) ->
     try
         {ok, ReceiveHeader} = gen_tcp:recv(Sock, 0, ?HEADER_TIMEOUT),
         [Method, UglyPath| _] = binary:split(ReceiveHeader, [<<" ">>, <<"?">>, <<"\r">>, <<"\n">>], [trim_all, global]),
@@ -93,7 +106,8 @@ listen_sock(ListenSock) ->
     catch
         _:_ ->
             gen_tcp:close(Sock)
-    end.
+    end,
+    ok.
 
 get_date() ->
     {Date, {Hours, Minutes, Seconds}} = calendar:universal_time(),
@@ -122,12 +136,5 @@ get_content_type(Filename) ->
             "application/octet-stream"
     end.
 
-% prn(Txt) ->
-%     case is_integer(Txt) of
-%         true ->
-%             io:format("~B~n", [Txt]);
-%         false ->
-%             io:format("~s~n", [Txt])
-%     end.
 
 
