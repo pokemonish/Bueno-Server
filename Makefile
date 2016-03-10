@@ -1,5 +1,5 @@
 all:
 	@ erlc httpd.erl;
 clean:
-	@ rm httpd.beam;
-	@ rm -rf erl_crush.dump;
+	@ rm -f httpd.beam;
+	@ rm -f erl_crash.dump;
