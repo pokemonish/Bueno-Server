@@ -1,5 +1,5 @@
 -module(httpd).
--export([start/0, stop/1]).
+-export([start/1, stop/1]).
 
 
 -define(HEADER_TIMEOUT, 1000).
@@ -7,8 +7,8 @@
 -define(FILE_INDEX    , "index.html").
 
 
-start() ->
-    case gen_tcp:listen(80, [binary, {packet, 0}, {active, false}]) of
+start(Port) ->            
+    case gen_tcp:listen(Port, [binary, {packet, 0}, {active, false}]) of
         {ok, ListenSock} ->
             spawn(fun() -> listen_sock(ListenSock) end),
             {ok, ListenSock};
