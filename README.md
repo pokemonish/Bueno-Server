@@ -1,5 +1,5 @@
-Запуск сервера
-> {ok, Ls} = httpd:start(80).
+Сборка
+> make
 
-Остановка сервера
-> httpd:stop(Ls).
+Запуск
+> ./run.sh -p=80 -c=2 -r=static

@@ -1,16 +1,29 @@
 -module(httpd).
--export([start/1, stop/1]).
+-export([start/3, stop/1, shell_start/1]).
 
 
 -define(HEADER_TIMEOUT, 1000).
--define(DOCUMENT_ROOT , "static").
 -define(FILE_INDEX    , "index.html").
 
 
-start(Port) ->            
+shell_start(Arguments) ->
+    [PortString, CpusString, DocumentRoot] = Arguments,
+    {Port, _} = string:to_integer(PortString),
+    {Cpus, _} = string:to_integer(CpusString),
+    {ok, _} = httpd:start(Port, Cpus, DocumentRoot),
+    timer:sleep(infinity).
+
+start(Port, Cpus, DocumentRoot) ->
+    case Cpus > 0 of
+        true ->
+            erlang:system_flag(schedulers_online, Cpus);
+        false ->
+            ok
+    end,
+
     case gen_tcp:listen(Port, [binary, {packet, 0}, {active, false}]) of
         {ok, ListenSock} ->
-            spawn(fun() -> listen_sock(ListenSock) end),
+            spawn(fun() -> listen_sock(ListenSock, DocumentRoot) end),
             {ok, ListenSock};
         {error, Reason} ->
             {error, Reason}
@@ -19,16 +32,16 @@ start(Port) ->
 stop(ListenSock) ->
     gen_tcp:close(ListenSock).
 
-listen_sock(ListenSock) ->
+listen_sock(ListenSock, DocumentRoot) ->
     case gen_tcp:accept(ListenSock) of
         {ok, Sock} ->
-            spawn(fun() -> listen_sock(ListenSock) end),
-            handle_connect(Sock);
+            spawn(fun() -> listen_sock(ListenSock, DocumentRoot) end),
+            handle_connect(Sock, DocumentRoot);
         {error, closed} ->
             ok
     end.
 
-handle_connect(Sock) ->
+handle_connect(Sock, DocumentRoot) ->
     try
         {ok, ReceiveHeader} = gen_tcp:recv(Sock, 0, ?HEADER_TIMEOUT),
         [Method, UglyPath| _] = binary:split(ReceiveHeader, [<<" ">>, <<"?">>, <<"\r">>, <<"\n">>], [trim_all, global]),
@@ -46,7 +59,7 @@ handle_connect(Sock) ->
 
         case ForbiddenMethod of
             false ->
-                InsecurePath = ?DOCUMENT_ROOT ++ http_uri:decode(binary:bin_to_list(UglyPath)),
+                InsecurePath = DocumentRoot ++ http_uri:decode(binary:bin_to_list(UglyPath)),
                 NotVeryGoodPath = string:join(lists:subtract(string:tokens(InsecurePath,"/"),[".",".."]),"/"),
                 case binary:last(UglyPath) of
                     $/ ->
