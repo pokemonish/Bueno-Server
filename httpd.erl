@@ -60,7 +60,7 @@ handle_connect(Sock, DocumentRoot) ->
         case ForbiddenMethod of
             false ->
                 InsecurePath = DocumentRoot ++ http_uri:decode(binary:bin_to_list(UglyPath)),
-                NotVeryGoodPath = string:join(lists:subtract(string:tokens(InsecurePath,"/"),[".",".."]),"/"),
+                NotVeryGoodPath = string:join(lists:filter(fun(X) -> X/=".." andalso X/="." end, string:tokens(InsecurePath,"/")),"/"),
                 case binary:last(UglyPath) of
                     $/ ->
                         Path = NotVeryGoodPath ++ "/" ++ ?FILE_INDEX,
@@ -74,6 +74,8 @@ handle_connect(Sock, DocumentRoot) ->
                         end,
                         UserWantsFolder = false
                 end,
+
+                erlang:display(Path),
 
                 case UserWantsFolder of
                     false ->
