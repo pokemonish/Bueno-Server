@@ -75,8 +75,6 @@ handle_connect(Sock, DocumentRoot) ->
                         UserWantsFolder = false
                 end,
 
-                erlang:display(Path),
-
                 case UserWantsFolder of
                     false ->
                         Date = get_date(),
