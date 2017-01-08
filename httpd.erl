@@ -1,5 +1,5 @@
 -module(httpd).
--export([start/1, start/2, start/3, stop/1]).
+-export([start/0, start/1, start/2, start/3, stop/1]).
 
 
 -define(HEADER_TIMEOUT, 1000).
@@ -7,6 +7,9 @@
 -define(SERVER_ENDING , "Server: Bueno Server 3000\r\n"++ 
                         "Connection: close\r\n\r\n").
 -define(NOPE          , "Nope").
+
+start() ->
+    start(8000).
 
 start(Port) ->
     start(Port, "./static").
