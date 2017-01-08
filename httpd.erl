@@ -6,21 +6,7 @@
 -define(FILE_INDEX    , "index.html").
 
 
-shell_start(Arguments) ->
-    [PortString, CpusString, DocumentRoot] = Arguments,
-    {Port, _} = string:to_integer(PortString),
-    {Cpus, _} = string:to_integer(CpusString),
-    {ok, _} = httpd:start(Port, Cpus, DocumentRoot),
-    timer:sleep(infinity).
-
-start(Port, Cpus, DocumentRoot) ->
-    case Cpus > 0 of
-        true ->
-            erlang:system_flag(schedulers_online, Cpus);
-        false ->
-            ok
-    end,
-
+start(Port, DocumentRoot) ->
     case gen_tcp:listen(Port, [binary, {packet, 0}, {active, false}]) of
         {ok, ListenSock} ->
             spawn(fun() -> listen_sock(ListenSock, DocumentRoot) end),
