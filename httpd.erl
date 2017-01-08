@@ -1,5 +1,5 @@
 -module(httpd).
--export([start/2, stop/1]).
+-export([start/1, start/2, start/3, stop/1]).
 
 
 -define(HEADER_TIMEOUT, 1000).
@@ -8,9 +8,14 @@
                         "Connection: close\r\n\r\n").
 -define(NOPE          , "Nope").
 
+start(Port) ->
+    start(Port, "./static").
 
 start(Port, DocumentRoot) ->
-    case gen_tcp:listen(Port, [binary, {packet, 0}, {active, false}]) of
+    start(Port, DocumentRoot, {127,0,0,1}).
+
+start(Port, DocumentRoot, Ip) ->
+    case gen_tcp:listen(Port, [binary, {packet, 0}, {active, false}, {ip, Ip}]) of
         {ok, ListenSock} ->
             spawn(fun() -> listen_sock(ListenSock, DocumentRoot) end),
             {ok, ListenSock};
