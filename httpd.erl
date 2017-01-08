@@ -1,9 +1,12 @@
 -module(httpd).
--export([start/3, stop/1, shell_start/1]).
+-export([start/2, stop/1]).
 
 
 -define(HEADER_TIMEOUT, 1000).
 -define(FILE_INDEX    , "index.html").
+-define(SERVER_ENDING , "Server: Bueno Server 3000\r\n"++ 
+                        "Connection: close\r\n\r\n").
+-define(NOPE          , "Nope").
 
 
 start(Port, DocumentRoot) ->
@@ -45,60 +48,59 @@ handle_connect(Sock, DocumentRoot) ->
 
         case ForbiddenMethod of
             false ->
-                InsecurePath = DocumentRoot ++ http_uri:decode(binary:bin_to_list(UglyPath)),
-                NotVeryGoodPath = string:join(lists:filter(fun(X) -> X/=".." andalso X/="." end, string:tokens(InsecurePath,"/")),"/"),
+                InsecurePath = http_uri:decode(binary:bin_to_list(UglyPath)),
+                VeryVeryNotGoodPath = string:join(lists:filter(fun(X) -> X/=".." andalso X/="." end, string:tokens(InsecurePath,"\\")),"\\"),
+                NotVeryGoodPath = string:join(lists:filter(fun(X) -> X/=".." andalso X/="." end, string:tokens(VeryVeryNotGoodPath,"/")),"/"),
                 case binary:last(UglyPath) of
                     $/ ->
-                        Path = NotVeryGoodPath ++ "/" ++ ?FILE_INDEX,
+                        Path = DocumentRoot ++ "/" ++ NotVeryGoodPath ++ "/" ++ ?FILE_INDEX,
                         UserWantsFolder = not filelib:is_file(Path);
                     _ ->
-                        case filelib:is_file(NotVeryGoodPath) of
+                        case filelib:is_file(DocumentRoot ++ "/" ++ NotVeryGoodPath) of
                             true ->
-                                Path = NotVeryGoodPath;
+                                Path = DocumentRoot ++ "/" ++ NotVeryGoodPath;
                             false ->
-                                Path = NotVeryGoodPath ++ "/" ++ ?FILE_INDEX
+                                Path = DocumentRoot ++ "/" ++ NotVeryGoodPath ++ "/" ++ ?FILE_INDEX
                         end,
                         UserWantsFolder = false
                 end,
+                io:fwrite(Path, []), io:fwrite("~n", []),
 
                 case UserWantsFolder of
                     false ->
                         Date = get_date(),
-                        ContentType = get_content_type(NotVeryGoodPath),
+                        ContentType = get_content_type(Path),
 
                         {FileExists, FileInfo} = file:read_file_info(Path),
                         case FileExists of
                             ok ->
                                 ContentLength = element(2, FileInfo),
                                 
-                                SendHeader = "HTTP/1.0 200 OK\r\n" ++
-                                             "Connection: close\r\n" ++
+                                SendHeader = "HTTP/1.1 200 OK\r\n" ++
                                              "Date: " ++ Date ++ "\r\n" ++
-                                             "Server: koko\r\n" ++
                                              "Content-Type: " ++ ContentType ++ "\r\n" ++
-                                             "Content-Length: " ++ integer_to_list(ContentLength) ++ "\r\n\r\n",
+                                             "Content-Length: " ++ integer_to_list(ContentLength) ++ "\r\n" ++
+                                             ?SERVER_ENDING,
                                 gen_tcp:send(Sock, SendHeader),
 
                                 if SendBody ->
                                     {ok, _} = file:sendfile(Path, Sock)
                                 end;
                             error ->
-                                SendHeader = "HTTP/1.0 404 OK\r\n" ++
-                                             "Connection: close\r\n" ++
+                                SendHeader = "HTTP/1.1 404 OK\r\n" ++
                                              "Date: " ++ Date ++ "\r\n" ++
-                                             "Server: koko\r\n\r\nNope",
+                                             ?SERVER_ENDING ++
+                                             ?NOPE,
                                 gen_tcp:send(Sock, SendHeader)
                         end;
                     true ->
-                        SendHeader = "HTTP/1.0 403 OK\r\n" ++
-                                     "Server: koko\r\n" ++
-                                     "Connection: close\r\n\r\n",
+                        SendHeader = "HTTP/1.1 403 OK\r\n" ++
+                                     ?SERVER_ENDING,
                         gen_tcp:send(Sock, SendHeader)
                 end;
             true ->
-                SendHeader = "HTTP/1.0 405 OK\r\n" ++
-                             "Server: koko\r\n" ++
-                             "Connection: close\r\n\r\n",
+                SendHeader = "HTTP/1.1 405 OK\r\n" ++
+                             ?SERVER_ENDING,
                 gen_tcp:send(Sock, SendHeader)
         end,
         ok = gen_tcp:close(Sock)
